@@ -1,0 +1,271 @@
+=head1 NAME
+
+portscout - A tool to scan for new versions of FreeBSD ports.
+
+
+=head1 SYNOPSIS
+
+    portscout build
+
+    while (lazy) {
+        portscout rebuild
+        portscout check
+        portscout showupdates
+    }
+
+
+=head1 DESCRIPTION
+
+Portscout is an automated system designed to search for new versions of
+software available in the FreeBSD ports tree. It is primarily designed for use
+by FreeBSD port maintainers, who can avoid trailing around dozens of websites
+looking for updates. However, I hope that others might find it useful too.
+
+The current version of Portscout is also capable of checking OpenBSD's ports,
+NetBSD's pkgsrc, and also a generic list of software from an XML file.
+
+
+=head1 SYSTEM REQUIREMENTS
+
+The following software is required to run Portscout:
+
+    - PostgreSQL or SQLite
+    - POSIX-compatible system
+    - The FreeBSD ports tree
+    - Berkeley make
+    - Perl 5.6+
+
+Plus we need a few Perl modules:
+
+    - URI
+    - DBD::Pg or DBD::SQLite
+    - Net::FTP
+    - Proc::Queue
+    - LWP::UserAgent
+    - MIME::Lite
+    - XML::XPath
+    - XML::XPath::XMLParser
+
+SQLite support is currently limited to non-forking mode only. That is, if you
+decide to use SQLite, Portscout will only check one port at a time; this will
+severely limit Portscout's speed/efficiency. It is therefore suggested that
+SQLite only be used for relatively light workloads.
+
+
+=head1 INITIAL SET-UP
+
+=head2 Initialise Database
+
+The recommended database backend is PostgreSQL.
+
+=head3 Option One: PostgreSQL
+
+Create database:
+
+    # createuser -U pgsql -P portscout
+    # createdb -U pgsql portscout
+
+Execute the included F<pgsql_init.sql> script via C<psql>:
+
+    # psql portscout portscout < sql/pgsql_init.sql
+
+This will create the database tables for you.
+
+=head3 Option Two: SQLite
+
+Create a database file with the included script:
+
+    # sqlite3 /var/db/portscout.db < sql/sqlite_init.sql
+
+=head2 Configure Portscout
+
+Review F<portscout.conf>, and check it suits your needs. The defaults should be
+reasonable for most people. You can reduce C<num_children> and C<workqueue_size>
+if you don't want Portscout sucking up all your resources.
+
+Please note that Portscout's internal defaults differ from the defaults in
+F<portscout.conf> - this is because without a config file, Portscout tries to be
+"portable" and use its own directory for storing things under, whereas if a
+config file is found, it assumes it is installed and being used "system-wide".
+
+Any of the options in F<portscout.conf> can also be set on the fly on the
+command line. For example:
+
+    $ portscout --precious_data --num_children=8
+
+=head2 Update Ports Tree (FreeBSD Only)
+
+Ensure your ports tree is up to date.
+
+=head2 Populate Database
+
+We need now to populate the database with the software we want to check.
+
+=head3 Option One: FreeBSD
+
+If you're using Portscout to check FreeBSD ports, run:
+
+    $ portscout build
+
+This takes around 70 minutes for me. Basically, Portscout is extracting all
+the information it needs from the ports tree. Ports (by virtue of make) is
+slow; the database we're building is much faster. After this initial build, we
+will do incremental 'builds', only updating what has changed.
+
+=head3 Option Two: Other Software Repositories
+
+If you would like to check another software repository/source, Portscout
+has several options.
+
+Firstly, NetBSD and OpenBSD's ports trees are supported by the standard
+"Ports" backend. See F<portscout.conf> for details on how to configure this.
+Make sure you've got the correct C<make> at hand for Portscout if you're
+checking either of these from another operating system (e.g. FreeBSD).
+
+Caveat: neither of the above have been well-tested, and support should
+probably be considered experimental.
+
+Secondly, you can use the "XML" backend for a finite list of software
+that you want to manage by hand. See L<Portscout::DataSrc::XML|Portscout::DataSrc::XML>
+for more information.
+
+
+=head1 REGULAR OPERATION
+
+=head2 Update Ports Tree (FreeBSD Only)
+
+Ensure your ports tree is up to date.
+
+=head2 Incremental Database Update
+
+If your ports tree / data source was updated since your last build/rebuild,
+ensure Portscout knows about the changes:
+
+    $ portscout rebuild
+
+=head2 Run Version Checks
+
+    $ portscout check
+
+This will instruct Portscout to search for new distfiles for each port in the
+database. It will take several hours for a complete ports tree scan.
+
+=head2 View Results
+
+Now you've got some results, you can view them.
+
+=head3 Option One: HTML Reports
+
+    $ portscout generate
+
+This will put HTML pages inside C<html_data_dir> - existing pages will be
+deleted.
+
+=head3 Option Two: E-Mail Reports
+
+    $ portscout mail
+
+This will send out an e-mail message to the maintainers of ports with updates.
+The e-mail messages are opt-in; you will need to add addresses to the database
+before any e-mails are sent out.
+
+=head3 Option Three: Console Summary
+
+    $ portscout showupdates
+
+This will output a summary of software with outstanding updates. It is
+recommended if you're checking a limited set of software/ports.
+
+
+=head1 ADDING E-MAIL ADDRESSES
+
+If you want to send e-mail reports to maintainers of updated of software, the
+e-mail addresses need to be registered with Portscout. This is a safeguard to
+ensure no one gets e-mails they don't want.
+
+Use the following to manage these e-mail "subscriptions":
+
+    $ portscout add-mail dave@example.net
+
+    $ portscout remove-mail john@localhost
+
+    $ portscout show-mail
+
+
+=head1 UPGRADING
+
+When upgrading, check the F<sql> directory for any relevant database schema
+upgrade scripts. If there were multiple schema updates between the previous
+version of Portscout and the version to which you have upgraded, be sure to
+run each script in sequence to arrive at the latest database version.
+
+
+=head1 CHECKING ALGORITHM
+
+For anyone interested in how Portscout operates, here is a high-level summary
+of the checking algorithm in use:
+
+ Test 1:
+   1) Order master sites using previous reliability data.
+   2) Attempt to get an FTP listing or web server index from each site.
+   3) Extract version from files found; compare to current version.
+   4) Skip other tests if new or current version is found.
+
+ Test 2:
+   1) Increment each part of the port's version string and attempt to
+      download file, e.g. for 1.4.2, try 2.0.0, 1.5.0 and 1.4.3
+
+The last test is not yet included in Portscout, but I may add it at some
+point, depending on the results of testing:
+
+ Test 3:
+   1) Locate port's WWW page and spider site in an attempt to find a
+      page that looks like a "download area". Scan page for possible
+      links to new files.
+
+
+=head1 BUGS AND LIMITATIONS
+
+=over
+
+=item
+
+Portscout tries to make a reasonable guess when it encounters version
+strings in a different format to the original distname (e.g. 3.2,
+3.6-pre7), but this is difficult and error-prone since vendor version
+schemes vary wildly.
+
+The only real problem at the moment is version strings which seem to
+to count backwards (e.g. 2.11 -> 2.2).
+
+=item
+
+There's some difficulty in deciding what to do with trailing zeros
+in version guesses. Currently, they are left intact, but this is
+not always going to be the right course of action. In other words,
+from 4.3.9, will the next major version be 4.4.0 or 4.4?
+
+=item
+
+The restrict_* variables don't affect generate/mail.
+
+=item
+
+Portscout doesn't handle ports with multiple distfiles very well.
+
+=item
+
+At least one port (archivers/zip, as of 2010-04-28) doesn't provide
+a version string in the vendor's format. portscout doesn't know what
+to do in this case, although the version could theoretically be
+ascertained from the distfile name.
+
+=back
+
+
+=head1 COPYRIGHT
+
+Copyright (C) 2005-2011, Shaun Amott E<lt>shaun@inerd.comE<gt>.
+All rights reserved.
+
+=cut

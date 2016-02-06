@@ -1,0 +1,119 @@
+<html>
+
+<head>
+	<title>portscout - new distfile scanner</title>
+	<style>
+	<!--
+		body, table        { font-family: "Verdana", "Helvetica", Sans-Serif; }
+		h2                 { font-family: "Verdana", "Helvetica", Sans-Serif; }
+		tr                 { background-color: #FFFFFF; font-family: "Verdana", "Helvetica", Sans-Serif; }
+		td, p, ul, span    { font-family: "Verdana", "Helvetica", Sans-Serif; font-size: 85%; }
+		.results           { background-color: #444444; }
+		.resultshead       { color: #FFFFFF; font-weight: bold; background-color: #999999; }
+
+		.resultsrow        { background-color: #FFFFFF; }
+		.resultsrowupdated { background-color: #AAAADD; }
+
+		.resultshead a     { color: #FFFFFF; text-decoration: none; }
+
+		.box               { border: 1px solid #000000; padding: 6px; }
+	//-->
+	</style>
+
+	<script type="text/javascript">
+		var fproc = null;
+
+		function FilterResults() {
+			if (!fproc) {
+				var button = document.getElementById('submitbutton');
+
+				if (!button)
+					return;
+
+				button.setAttribute('disabled', 'disabled');
+				button.value = 'Processing...';
+
+				fproc = setTimeout(DoFilter, 100);
+			}
+		}
+
+		function DoFilter() {
+			var outofdate  = document.getElementById('filter_ood');
+			var maintainer = document.getElementById('filter_maintainer');
+			var results    = document.getElementById('results');
+			var button     = document.getElementById('submitbutton');
+			var regex;
+
+			if (!outofdate || !maintainer || !results || !button)
+				return;
+
+			regex = new RegExp(maintainer.value, 'i');
+
+			for (var i = 0; i < results.childNodes.length; i++) {
+				var row, row_maintainer, row_withnew;
+				row = results.childNodes[i];
+				if (row.tagName != 'TR' || row.className == 'resultshead')
+					continue;
+
+				if (!row.childNodes[0] || !row.childNodes[0].childNodes[0])
+					continue;
+
+				row_maintainer = row.childNodes[0].childNodes[0].innerHTML;
+				row_withnew    = parseInt(row.childNodes[2].innerHTML);
+
+				if (!regex.test(row_maintainer)) {
+					row.style.display = 'none';
+				} else if (outofdate.checked && row_withnew == 0) {
+					row.style.display = 'none';
+				} else {
+					try {
+						row.style.display = 'table-row';
+					} catch(e) {
+						row.style.display = 'block';
+					}
+				}
+			}
+
+			fproc = null;
+
+			button.value = 'Apply';
+			button.removeAttribute('disabled');
+		}
+	</script>
+</head>
+
+<body>
+
+<h1>portscout - New Distfile Scanner</h1>
+
+<h2>All Maintainers</h2>
+<hr>
+
+<p>Generated on %%(date) at %%(time), by <a href="http://www.inerd.com/software/portscout/">portscout</a> v%%(appver)</p>
+
+<p>Table headings are clickable for different sorting.</p>
+
+<p><a href="restricted-ports.html">Restricted ports</a> <font color="#CC0000"><b>&lt;-- Please check this!</b></font></p>
+
+<span class="box">
+	Filter Maintainer (regex): <input type="text" id="filter_maintainer" />
+	<input type="checkbox" id="filter_ood" />With out-of-date only
+	<input type="button" value="Apply" id="submitbutton" onclick="FilterResults()" />
+</span>
+
+<br /><br />
+
+<table class="results" cellspacing="1" cellpadding="2">
+	<tbody id="results">
+		<tr class="resultshead">
+			<td><a href="index-maintainer.html">Maintainer</a></td>
+			<td><a href="index-total.html">Total Ports</a></td>
+			<td><a href="index-withnewdistfile.html">Ports with New Distfile(s)</a></td>
+			<td><a href="index-percentage.html">% Out of Date</a></td>
+		</tr>
+%%:		<tr class="resultsrow"><td><a href="%%(maintainer).html">%%(maintainer)</a></td><td>%%(total)</td><td>%%(withnewdistfile)</td><td>%%(percentage)</td></tr>
+	</tbody>
+</table>
+
+</body>
+</html>

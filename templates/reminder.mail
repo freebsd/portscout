@@ -1,0 +1,31 @@
+Dear port maintainer,
+
+The portscout new distfile checker has detected that one or more of your
+ports appears to be out of date. Please take the opportunity to check
+each of the ports listed below, and if possible and appropriate,
+submit/commit an update. If any ports have already been updated, you can
+safely ignore the entry.
+
+You will not be e-mailed again for any of the port/version combinations
+below.
+
+Full details can be found at the following URL:
+http://beta.inerd.com/portscout/%%(maintainer).html
+
+
+Port                                            | Current version | New version
+------------------------------------------------+-----------------+------------
+%%:%%(cat_portname:47) | %%(ver:16)| %%(newver)
+%%:------------------------------------------------+-----------------+------------
+
+
+If any of the above results are invalid, please check the following page
+for details on how to improve portscout's detection and selection of
+distfiles on a per-port basis:
+
+http://beta.inerd.com/portscout-portconfig.txt
+
+If wish to stop (or start!) receiving portscout reminders, please
+contact the operator of this installation.
+
+Thanks.

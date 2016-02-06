@@ -1,0 +1,66 @@
+Details of the PORTSCOUT variable
+---------------------------------
+
+- Consists of key:value pairs, and whitespace between.
+- Don't bother using the variables unless you intend to maintain
+  them, otherwise portscout's accuracy will degrade rather than improve.
+- Don't forget to double up $'s if you use them, to prevent make(1) from
+  mangling regexes (if in doubt, verify the output of 'make -V PORTSCOUT')
+- Each of these variables (keys) can be used only once per port.
+- Restrictive variables should be avoided, most ports won't even
+  need any intervention.
+- Ports containing embedded version numbers (e.g. tcl84) are automatically
+  restricted. - i.e., only distfiles matching tcl 8.4.x will be allowed
+  (unless the current distfile differs)
+- Any regexes or limitations below apply to just the version, not the
+  whole distfile name.
+
+Keys
+----
+
+site:   Tell portscout to look at one specific page or site for downloads,
+        rather than looking through MASTER_SITES.
+
+        Example: site:http://www.example.net/downloads.php
+
+        Apache index pages or FTP directories are ideal for this.
+
+limit:  Tell portscout to reject any new versions unless they match this
+        Perl regular expression.
+
+        Example: limit:.*[acd]$$
+
+        (new versions must end in a, c, or d.) - note the $$ in place
+        of $.
+
+skipb:  Skip versions that look like beta or RC. This is on (1) by
+        default. Set to 0 to disable. If the port's version already
+        looks like a beta release, portscout will accept betas
+        irrespective of the state of this variable.
+
+        Example: skipb:0
+
+skipv:  Comma-separated list of versions to ignore.
+
+        Example: skipv:1.1,1.9
+
+limitw: Limit one part of the version number to either even or odd
+        numbers. This variable is in the form "number,[even|odd]"
+        The (number+1)th version component will be limited.
+
+        Examples:
+
+         limitw:1,even      # Accepted versions: 1.0.1.13.9.8
+                            #                    1.2.6
+                            #                    12.4.3d
+                            # Rejected versions: 2.5.2
+                            #                    5.5
+                            #                    8.9
+
+         limitw:0,odd       # Accepted versions: 1.1, 3.2
+                            # Rejected versions: 2.0, 6
+
+ignore:  Set to 1 to tell portscout not to do any version checking at
+         all. Useful if, say, a particular port is not going to be
+         updated ever again, yet portscout still finds files that look
+         like updates.

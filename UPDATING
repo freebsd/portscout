@@ -1,0 +1,39 @@
+-- Changes in 0.8.1 -----------------------------------------------------------
+
+- The restrict_* configuration options now accept wildcards (? and *).
+
+
+-- Changes in 0.8 -------------------------------------------------------------
+
+- SQLite is now supported as a database backend. However, portscout must be
+  run in non-forking mode when using SQLite. This may or may not change in the
+  future, but as a consequence, it is recommended that SQLite only be used for
+  light workloads.
+
+  To put portscout into non-forking mode, be sure to set
+
+      num children = 0
+
+  in portscout.conf.
+
+- CVSup logs are no longer required; the 'rebuild' method employed by
+  portscout has now been replaced with the new 'mtime' option; this is cleaner
+  and simpler, and requires no external files beyond a working ports tree.
+
+- Master site data are no longer cached, nor even written to disk. The
+  cache_ms_data and ms_data_dir options are now deprecated. The directory used
+  for the latter can safely be deleted.
+
+- An INDEX file is no longer required to run portscout, unless a
+  restrict_maintainer constraint is in force. In this case, use of INDEX can
+  be switched off using indexfile_enable, but rebuilding will be as slow as
+  a full build.
+
+- It was previously suggested that 'build' could be used in place of 'rebuild'
+  in case CVSup logs could not be provided to portscout. This is no longer the
+  case. Be sure to always use 'rebuild' and not 'build', except for initial
+  population of the database.
+
+- Static portconfig entries (as provided in initdata.sql) are now deprecated.
+  These must be set via the PORTSCOUT variable in ports. Static entries can
+  still be used, but will be lost if the port moves.

@@ -1,0 +1,31 @@
+<items>
+	<item>
+		<category>www</category>
+		<name>phpsysinfo</name>
+		<desc>A PHP script for displaying system information</desc>
+		<maintainer>me@example.net</maintainer>
+		<version>3.0.2</version>
+		<sites>
+			<site>http://heanet.dl.sourceforge.net/project/%(name)/%(name)/%(version)/</site>
+			<site>http://sunet.dl.sourceforge.net/project/%(name)/%(name)/%(version)/</site>
+			<site>http://iweb.dl.sourceforge.net/project/%(name)/%(name)/%(version)/</site>
+			<site>http://switch.dl.sourceforge.net/project/%(name)/%(name)/%(version)/</site>
+			<site>http://surfnet.dl.sourceforge.net/project/%(name)/%(name)/%(version)/</site>
+			<site>http://kent.dl.sourceforge.net/project/%(name)/%(name)/%(version)/</site>
+		</sites>
+	</item>
+	<item>
+		<category>www</category>
+		<name>smarty</name>
+		<desc>The PHP compiling template engine</desc>
+		<maintainer>me@example.net</maintainer>
+		<version>2.6.26</version>
+		<distname>Smarty-%(version)</distname>
+		<sites>
+			<site>http://www.smarty.net/distributions/</site>
+		</sites>
+		<options>
+			<option name="limit" value="^2\.6\." />
+		</options>
+	</item>
+</items>

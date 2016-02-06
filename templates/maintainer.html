@@ -1,0 +1,136 @@
+<html>
+
+<head>
+	<title>portscout - new distfile scanner</title>
+	<style>
+	<!--
+		body, table        { font-family: "Verdana", "Helvetica", Sans-Serif; }
+		h2                 { font-family: "Verdana", "Helvetica", Sans-Serif; }
+		tr                 { background-color: #FFFFFF; font-family: "Verdana", "Helvetica", Sans-Serif; }
+		td, p, ul, span    { font-family: "Verdana", "Helvetica", Sans-Serif; font-size: 85%; }
+		td a               { color: #000000; text-decoration: none; }
+		.results           { width: 100%; background-color: #444444; }
+		.resultshead       { color: #FFFFFF; font-weight: bold; background-color: #999999; }
+
+		.resultsrow        { background-color: #FFFFFF; }
+		.resultsrowupdated { background-color: #AAAADD; }
+
+		.box               { border: 1px solid #000000; padding: 6px; }
+	//-->
+	</style>
+
+	<script type="text/javascript">
+		var fproc = null;
+
+		function FilterResults() {
+			if (!fproc) {
+				var button = document.getElementById('submitbutton');
+
+				if (!button)
+					return;
+
+				button.setAttribute('disabled', 'disabled');
+				button.value = 'Processing...';
+
+				fproc = setTimeout(DoFilter, 100);
+			}
+		}
+
+		function DoFilter() {
+			var outofdate  = document.getElementById('filter_ood');
+			var port       = document.getElementById('filter_port');
+			var results    = document.getElementById('results');
+			var button     = document.getElementById('submitbutton');
+			var regex;
+
+			if (!outofdate || !port || !results || !button)
+				return;
+
+			regex = new RegExp(port.value, 'i');
+
+			for (var i = 0; i < results.childNodes.length; i++) {
+				var row, row_port, row_withnew;
+				row = results.childNodes[i];
+				if (row.tagName != 'TR' || row.className == 'resultshead')
+					continue;
+
+				if (!row.childNodes[0] || !row.childNodes[0].childNodes[0])
+					continue;
+
+				row_port    = row.childNodes[0].childNodes[0].innerHTML;
+				row_withnew = parseInt(row.childNodes[3].childNodes[0].innerHTML);
+
+				if (!regex.test(row_port)) {
+					row.style.display = 'none';
+				} else if (outofdate.checked && row_withnew == 0) {
+					row.style.display = 'none';
+				} else {
+					try {
+						row.style.display = 'table-row';
+					} catch(e) {
+						row.style.display = 'block';
+					}
+				}
+			}
+
+			fproc = null;
+
+			button.value = 'Apply';
+			button.removeAttribute('disabled');
+		}
+	</script>
+</head>
+
+<body>
+
+<h2>%%(maintainer)'s ports</h2>
+<hr>
+<p>
+	Notes:
+	<ul>
+		<li>Port version strings are derived from DISTNAME values; they are not in "ports format"</li>
+		<li>
+			Updated/Checked time is when the database was updated and when a new distfile scan was
+			done, respectively.
+		</li>
+	</ul>
+</p>
+
+<p>
+	Port and New Version columns are clickable.
+</p>
+
+<p>
+	Key for the 'M' column:
+	<ul>
+		<li>G = file was found by sending incremental version guesses to server.</li>
+		<li>L = file was found in FTP or HTTP directory index.</li>
+		<li>X = port is ignored - new versions are not reported.</li>
+	</ul>
+</p>
+
+<span class="box">
+	Filter Port (regex): <input type="text" id="filter_port" />
+	<input type="checkbox" id="filter_ood" />With out-of-date only
+	<input type="button" value="Apply" id="submitbutton" onclick="FilterResults()" />
+</span>
+
+<br /><br />
+
+<table class="results" cellspacing="1" cellpadding="2">
+	<tbody id="results">
+		<tr class="resultshead">
+			<td>Port</td>
+			<td>Category</td>
+			<td>Current</td>
+			<td>New</td>
+			<td>Last Updated</td>
+			<td>Last Checked</td>
+			<td>M</td>
+		</tr>
+%%:		<tr class="resultsrow%%(newdistfile)"><td><a href="http://www.freshports.org/%%(cat)/%%(name)/">%%(name)</a></td><td>%%(cat)</td><td>%%(ver)</td><td><a href="%%(newurl)">%%(newver)</a></td><td>%%(updated)</td><td>%%(checked)</td><td>%%(method)</td></tr>
+	</tbody>
+</table>
+
+</body>
+</html>
