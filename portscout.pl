@@ -1245,7 +1245,7 @@ sub GenerateHTML
 	$dbh = connect_db();
 
 	prepare_sql($dbh, \%sths,
-		qw(portdata_genresults portdata_selectall portdata_selectall_limited)
+		qw(portdata_genresults portdata_selectmaintainer portdata_selectall_limited)
 	);
 
 	if ($Portscout::SQL::sql{portdata_genresults_init}) {
@@ -1323,8 +1323,8 @@ sub GenerateHTML
 		$outdata{maintainer} = $addr;
 		$template->applyglobal(\%outdata);
 
-		$sths{portdata_selectall}->execute($addr);
-		while (my $row = $sths{portdata_selectall}->fetchrow_hashref) {
+		$sths{portdata_selectmaintainer}->execute($addr);
+		while (my $row = $sths{portdata_selectmaintainer}->fetchrow_hashref) {
 			if ($row->{ignore}) {
 				$row->{method} = 'X';
 				$row->{newver} = '';

@@ -231,7 +231,7 @@ $sql{portdata_uncheck} =
 
 #$sql{portdata_genresults}
 
-$sql{portdata_selectall} =
+$sql{portdata_selectmaintainer} =
 	q(SELECT *
 	    FROM portdata
 	   WHERE lower(maintainer) = lower(?)
