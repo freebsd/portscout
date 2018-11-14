@@ -231,6 +231,12 @@ $sql{portdata_uncheck} =
 
 #$sql{portdata_genresults}
 
+$sql{portdata_selectall} =
+	q(SELECT *
+	    FROM portdata
+	   WHERE moved != true
+	ORDER BY cat,name);
+
 $sql{portdata_selectmaintainer} =
 	q(SELECT *
 	    FROM portdata

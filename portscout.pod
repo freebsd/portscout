@@ -45,6 +45,7 @@ Plus we need a few Perl modules:
     - MIME::Lite
     - XML::XPath
     - XML::XPath::XMLParser
+    - JSON
 
 SQLite support is currently limited to non-forking mode only. That is, if you
 decide to use SQLite, Portscout will only check one port at a time; this will
