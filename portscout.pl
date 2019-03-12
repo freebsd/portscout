@@ -45,6 +45,7 @@ use LWP::UserAgent;
 use MIME::Lite;
 use Net::FTP;
 use URI;
+use JSON;
 
 use DBI;
 
@@ -1245,7 +1246,7 @@ sub GenerateHTML
 	$dbh = connect_db();
 
 	prepare_sql($dbh, \%sths,
-		qw(portdata_genresults portdata_selectall portdata_selectall_limited)
+		qw(portdata_genresults portdata_selectall portdata_selectmaintainer portdata_selectall_limited)
 	);
 
 	if ($Portscout::SQL::sql{portdata_genresults_init}) {
@@ -1323,8 +1324,8 @@ sub GenerateHTML
 		$outdata{maintainer} = $addr;
 		$template->applyglobal(\%outdata);
 
-		$sths{portdata_selectall}->execute($addr);
-		while (my $row = $sths{portdata_selectall}->fetchrow_hashref) {
+		$sths{portdata_selectmaintainer}->execute($addr);
+		while (my $row = $sths{portdata_selectmaintainer}->fetchrow_hashref) {
 			if ($row->{ignore}) {
 				$row->{method} = 'X';
 				$row->{newver} = '';
@@ -1376,6 +1377,49 @@ sub GenerateHTML
 	}
 
 	$template->output('restricted-ports.html');
+
+	print "Creating JSON dump of all data...\n";
+
+	open my $jf, '>', $settings{html_data_dir} . '/dump.json'
+		or die 'Cannot open JSON output';
+
+	print $jf '[';
+
+	my $firstitem = 1;
+
+	$sths{portdata_selectall}->execute();
+	while (my $row = $sths{portdata_selectall}->fetchrow_hashref) {
+		if ($row->{ignore}) {
+			$row->{method} = 'X';
+			$row->{newver} = '';
+			$row->{newurl} = '';
+		} else {
+			if ($row->{method} == METHOD_LIST) {
+				$row->{method} = 'L';
+			} elsif ($row->{method} == METHOD_GUESS) {
+				$row->{method} = 'G';
+			} else {
+				$row->{method} = '';
+			}
+		}
+
+		if ($row->{newver} && ($row->{ver} ne $row->{newver})) {
+			$row->{newdistfile} = 'updated';
+		} else {
+			next if ($settings{hide_unchanged});
+			$row->{newdistfile} = '';
+		}
+		$row->{updated} =~ s/:\d\d(?:\.\d+)?$/ $settings{local_timezone}/;
+		$row->{checked} =~ s/:\d\d(?:\.\d+)?$/ $settings{local_timezone}/;
+
+		$row = { map { $_ => $row->{$_} } qw(name cat maintainer ver method newver newurl checked updated discovered) };
+
+		print $jf ',' unless $firstitem;
+		print $jf encode_json($row);
+		$firstitem = 0;
+	}
+	print $jf ']';
+	close $jf;
 
 	finish_sql($dbh, \%sths);
 	$dbh->disconnect;
