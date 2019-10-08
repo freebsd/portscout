@@ -109,7 +109,7 @@ sub GetFiles
 		my ($query, $ua, $response, $items, $json);
 
 		# First check if there's a latest releases endpoint
-		$query = 'https://api.github.com/repos/' . $projname . '/releases/latest';
+		$query = 'https://api.github.com/repos/' . $projname . '/releases';
 		# Add GitHub Client ID & Secret if they are set in settings
 		# https://developer.github.com/v3/#authentication
 		if ($settings{github_client_id} && $settings{github_client_secret}) {
@@ -124,6 +124,11 @@ sub GetFiles
 
 		if (!$response->is_success || $response->status_line !~ /^2/) {
 			_debug('GET failed: ' . $response->status_line);
+			return 0;
+		}
+
+		$json = decode_json($response->decoded_content);
+		if (!scalar @$json) {
 			# Project didn't do any releases, so let's try tags instead.
 			$query = 'https://api.github.com/repos/' . $projname . '/tags';
 			# Add GitHub Client ID & Secret if they are set in settings
@@ -142,20 +147,19 @@ sub GetFiles
 			    _debug('GET failed: ' . $response->status_line);
 			    return 0;
 			}
-
 			$json = decode_json($response->decoded_content);
 			foreach my $tag (@$json) {
-			    my $tag_url = $tag->{tarball_url};
-			    push(@$files, $tag_url);
+				my $tag_url = $tag->{tarball_url};
+				push(@$files, $tag_url);
 			}
-
-			_debug('Found ' . scalar @$files . ' files');
-			return 1;
+		} else {
+			foreach my $release (@$json) {
+				if (!$release->{prerelease} && !$release->{draft}) {
+					my $release_url = $release->{tarball_url};
+					push(@$files, $release_url);
+				}
+			}
 		}
-
-		$json = decode_json($response->decoded_content);
-		push(@$files, $json->{tarball_url});
-
 		_debug('Found ' . scalar @$files . ' files');
 	} else {
 		return 0;
