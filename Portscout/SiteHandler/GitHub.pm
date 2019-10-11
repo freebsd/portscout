@@ -48,8 +48,8 @@ our %settings;
 
 sub new
 {
-	my $self      = {};
-	my $class     = shift;
+	my $self = {};
+	my $class = shift;
 
 	$self->{name} = 'GitHub';
 
@@ -95,26 +95,53 @@ sub GetFiles
 	my $self = shift;
 
 	my ($url, $port, $files) = @_;
+	my $files_count_before = scalar @$files;
 	my $projname;
 
-	if ($url =~ /https?:\/\/codeload\.github\.com\/(.*?)\/tar.gz\//) {
-	    $projname = $1;
-	} elsif ($url =~ /https:\/\/github\.com\/(.*?)\/archive\//) {
-	    $projname = $1;
-	} elsif ($url =~ /https:\/\/github.com\/downloads\/(.*)\//) {
-	    $projname = $1;
+	# Extract project name from URL
+	if ($url =~ /https?:\/\/codeload\.github\.com\/(.+?)\/tar.gz\//) {
+		$projname = $1;
+	} elsif ($url =~ /https:\/\/github\.com\/(.+?)\/archive\//) {
+		$projname = $1;
+	} elsif ($url =~ /https:\/\/github.com\/downloads\/(.+)\//) {
+		$projname = $1;
+	} else {
+		_debug("Couldn't extract project name from URL $url");
+		return 0;
 	}
 
-	if ($projname) {
-		my ($query, $ua, $response, $items, $json);
+	# GitHub Client ID & Secret to be appended to queries
+	# if they are set in settings
+	# https://developer.github.com/v3/#authentication
+	my $credentials = "";
+	if ($settings{github_client_id} && $settings{github_client_secret}) {
+		$credentials = "?client_id=$settings{github_client_id}&client_secret=$settings{github_client_secret}";
+	}
 
-		# First check if there's a latest releases endpoint
-		$query = 'https://api.github.com/repos/' . $projname . '/releases/latest';
-		# Add GitHub Client ID & Secret if they are set in settings
-		# https://developer.github.com/v3/#authentication
-		if ($settings{github_client_id} && $settings{github_client_secret}) {
-			$query = $query . "?client_id=$settings{github_client_id}&client_secret=$settings{github_client_secret}";
+	# See if there are any releases
+	my $query = 'https://api.github.com/repos/' . $projname . '/releases' . $credentials;
+	_debug("GET $query");
+	my $ua = LWP::UserAgent->new;
+	$ua->agent(USER_AGENT);
+	$ua->timeout($settings{http_timeout});
+
+	my $response = $ua->request(HTTP::Request->new(GET => $query));
+	if (!$response->is_success || $response->status_line !~ /^2/) {
+		_debug('GET failed: ' . $response->status_line);
+		return 0;
+	}
+
+	my $json = decode_json($response->decoded_content);
+	foreach my $release (@$json) {
+		if (!$release->{prerelease} && !$release->{draft}) {
+			my $release_url = $release->{tarball_url};
+			push(@$files, $release_url);
 		}
+	}
+
+	# In case there aren't any releases, try tags tags instead
+	if (scalar @$files == $files_count_before) {
+		$query = 'https://api.github.com/repos/' . $projname . '/tags' . $credentials;
 		_debug("GET $query");
 		$ua = LWP::UserAgent->new;
 		$ua->agent(USER_AGENT);
@@ -124,43 +151,16 @@ sub GetFiles
 
 		if (!$response->is_success || $response->status_line !~ /^2/) {
 			_debug('GET failed: ' . $response->status_line);
-			# Project didn't do any releases, so let's try tags instead.
-			$query = 'https://api.github.com/repos/' . $projname . '/tags';
-			# Add GitHub Client ID & Secret if they are set in settings
-			# https://developer.github.com/v3/#authentication
-			if ($settings{github_client_id} && $settings{github_client_secret}) {
-				$query = $query . "?client_id=$settings{github_client_id}&client_secret=$settings{github_client_secret}";
-			}
-			_debug("GET $query");
-			$ua = LWP::UserAgent->new;
-			$ua->agent(USER_AGENT);
-			$ua->timeout($settings{http_timeout});
-
-			$response = $ua->request(HTTP::Request->new(GET => $query));
-
-			if (!$response->is_success || $response->status_line !~ /^2/) {
-			    _debug('GET failed: ' . $response->status_line);
-			    return 0;
-			}
-
-			$json = decode_json($response->decoded_content);
-			foreach my $tag (@$json) {
-			    my $tag_url = $tag->{tarball_url};
-			    push(@$files, $tag_url);
-			}
-
-			_debug('Found ' . scalar @$files . ' files');
-			return 1;
+			return 0;
 		}
-
 		$json = decode_json($response->decoded_content);
-		push(@$files, $json->{tarball_url});
-
-		_debug('Found ' . scalar @$files . ' files');
-	} else {
-		return 0;
+		foreach my $tag (@$json) {
+			my $tag_url = $tag->{tarball_url};
+			push(@$files, $tag_url);
+		}
 	}
 
+	_debug('Found ' . (scalar @$files - $files_count_before) . ' files');
 	return 1;
 }
 
