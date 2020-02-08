@@ -101,38 +101,22 @@ sub GetFiles
 	# Extract project name from URL
 	if ($url =~ /https?:\/\/codeload\.github\.com\/(.+?)\/tar.gz\//) {
 		$projname = $1;
-	} elsif ($url =~ /https:\/\/github\.com\/(.+?)\/archive\//) {
+	}
+	elsif ($url =~ /https:\/\/github\.com\/(.+?)\/archive\//) {
 		$projname = $1;
-	} elsif ($url =~ /https:\/\/github.com\/downloads\/(.+)\//) {
+	}
+	elsif ($url =~ /https:\/\/github.com\/downloads\/(.+)\//) {
 		$projname = $1;
-	} else {
+	}
+	else {
 		_debug("Couldn't extract project name from URL $url");
 		return 0;
 	}
 
-	# GitHub Client ID & Secret to be appended to queries
-	# if they are set in settings
-	# https://developer.github.com/v3/#authentication
-	my $credentials = "";
-	if ($settings{github_client_id} && $settings{github_client_secret}) {
-		$credentials = "?client_id=$settings{github_client_id}&client_secret=$settings{github_client_secret}";
-	}
-
 	# See if there are any releases
-	my $query = 'https://api.github.com/repos/' . $projname . '/releases' . $credentials;
-	_debug("GET $query");
-	my $ua = LWP::UserAgent->new;
-	$ua->agent(USER_AGENT);
-	$ua->timeout($settings{http_timeout});
-
-	my $response = $ua->request(HTTP::Request->new(GET => $query));
-	if (!$response->is_success || $response->status_line !~ /^2/) {
-		_debug('GET failed: ' . $response->status_line);
-		return 0;
-	}
-
-	my $json = decode_json($response->decoded_content);
-	foreach my $release (@$json) {
+	my $releases = _call_github_api('/repos/' . $projname . '/releases')
+	  or return 0;
+	foreach my $release (@$releases) {
 		if (!$release->{prerelease} && !$release->{draft}) {
 			my $release_url = $release->{tarball_url};
 			push(@$files, $release_url);
@@ -141,20 +125,9 @@ sub GetFiles
 
 	# In case there aren't any releases, try tags tags instead
 	if (scalar @$files == $files_count_before) {
-		$query = 'https://api.github.com/repos/' . $projname . '/tags' . $credentials;
-		_debug("GET $query");
-		$ua = LWP::UserAgent->new;
-		$ua->agent(USER_AGENT);
-		$ua->timeout($settings{http_timeout});
-
-		$response = $ua->request(HTTP::Request->new(GET => $query));
-
-		if (!$response->is_success || $response->status_line !~ /^2/) {
-			_debug('GET failed: ' . $response->status_line);
-			return 0;
-		}
-		$json = decode_json($response->decoded_content);
-		foreach my $tag (@$json) {
+		my $tags = _call_github_api('/repos/' . $projname . '/tags')
+		  or return 0;
+		foreach my $tag (@$tags) {
 			my $tag_url = $tag->{tarball_url};
 			push(@$files, $tag_url);
 		}
@@ -162,6 +135,41 @@ sub GetFiles
 
 	_debug('Found ' . (scalar @$files - $files_count_before) . ' files');
 	return 1;
+}
+
+
+#------------------------------------------------------------------------------
+# Func: _call_github_api()
+# Desc: Calls the github api making use of settings.
+#
+# Args: $resource - Resource to query (e.g. "/repos/project/releases")
+#
+# Retn: Parsed JSON
+#------------------------------------------------------------------------------
+
+sub _call_github_api {
+	my $resource = shift;
+
+	my $url = 'https://api.github.com' . $resource;
+	_debug("GET $url");
+
+	my $ua = LWP::UserAgent->new;
+	$ua->agent(USER_AGENT);
+	$ua->timeout($settings{http_timeout});
+
+	my $response = $ua->request(
+		HTTP::Request->new(
+			GET => $url,
+			$settings{github_token}
+			? ["Authorization" => "token $settings{github_token}"]
+			: []
+		)
+	);
+	if (!$response->is_success || $response->status_line !~ /^2/) {
+		_debug('GET failed: ' . $response->status_line);
+		return;
+	}
+	return decode_json($response->decoded_content);
 }
 
 
