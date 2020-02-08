@@ -19,6 +19,8 @@ package Portscout::SiteHandler::GitHub;
 
 use JSON qw(decode_json);
 use LWP::UserAgent;
+use MIME::Base64;
+
 
 use Portscout::Const;
 use Portscout::Config;
@@ -113,19 +115,20 @@ sub GetFiles
 	# GitHub Client ID & Secret to be appended to queries
 	# if they are set in settings
 	# https://developer.github.com/v3/#authentication
-	my $credentials = "";
+	my $headers = [];
 	if ($settings{github_client_id} && $settings{github_client_secret}) {
-		$credentials = "?client_id=$settings{github_client_id}&client_secret=$settings{github_client_secret}";
+		$headers = ["Authorization" => "Basic " .
+					encode_base64("$settings{github_client_id}:$settings{github_client_secret}")];
 	}
 
 	# See if there are any releases
-	my $query = 'https://api.github.com/repos/' . $projname . '/releases' . $credentials;
+	my $query = 'https://api.github.com/repos/' . $projname . '/releases';
 	_debug("GET $query");
 	my $ua = LWP::UserAgent->new;
 	$ua->agent(USER_AGENT);
 	$ua->timeout($settings{http_timeout});
 
-	my $response = $ua->request(HTTP::Request->new(GET => $query));
+	my $response = $ua->request(HTTP::Request->new("GET", $query, $headers));
 	if (!$response->is_success || $response->status_line !~ /^2/) {
 		_debug('GET failed: ' . $response->status_line);
 		return 0;
@@ -141,13 +144,10 @@ sub GetFiles
 
 	# In case there aren't any releases, try tags tags instead
 	if (scalar @$files == $files_count_before) {
-		$query = 'https://api.github.com/repos/' . $projname . '/tags' . $credentials;
+		$query = 'https://api.github.com/repos/' . $projname . '/tags';
 		_debug("GET $query");
-		$ua = LWP::UserAgent->new;
-		$ua->agent(USER_AGENT);
-		$ua->timeout($settings{http_timeout});
 
-		$response = $ua->request(HTTP::Request->new(GET => $query));
+		$response = $ua->request(HTTP::Request->new("GET", $query, $headers));
 
 		if (!$response->is_success || $response->status_line !~ /^2/) {
 			_debug('GET failed: ' . $response->status_line);
