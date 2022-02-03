@@ -101,14 +101,11 @@ sub GetFiles
 	# Extract project name from URL
 	if ($url =~ /https?:\/\/codeload\.github\.com\/(.+?)\/tar.gz\//) {
 		$projname = $1;
-	}
-	elsif ($url =~ /https:\/\/github\.com\/(.+?)\/archive\//) {
+	} elsif ($url =~ /https:\/\/github\.com\/(.+?)\/archive\//) {
 		$projname = $1;
-	}
-	elsif ($url =~ /https:\/\/github.com\/downloads\/(.+)\//) {
+	} elsif ($url =~ /https:\/\/github.com\/downloads\/(.+)\//) {
 		$projname = $1;
-	}
-	else {
+	} else {
 		_debug("Couldn't extract project name from URL $url");
 		return 0;
 	}
