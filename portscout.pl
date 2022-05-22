@@ -1518,13 +1518,22 @@ sub MailMaintainers
 
 	$sths{maildata_select}->execute;
 
-	$template = Portscout::Template->new('reminder.mail')
-		or die "reminder.mail template not found!\n";
 
 	while (my ($addr) = $sths{maildata_select}->fetchrow_array) {
 		my $msg;
 		my $ports = 0;
 		$sths{portdata_findnewnew}->execute($addr);
+
+		my $template;
+
+		if ($addr eq 'ports@freebsd.org') { 
+			$template = Portscout::Template->new('reminder-no-maintainer.mail')
+				or die "reminder-no-maintainer.mail template not found!\n";
+		} else {
+			$template = Portscout::Template->new('reminder.mail')
+				or die "reminder.mail template not found!\n";
+		}
+
 		$template->applyglobal({maintainer => lc $addr});
 
 		while (my $port = $sths{portdata_findnewnew}->fetchrow_hashref) {
@@ -1545,7 +1554,9 @@ sub MailMaintainers
 			                ? $settings{mail_from}
 			                : $settings{mail_from}.'@'.hostname(),
 			To       => $addr,
-			Subject  => $settings{mail_subject},
+			Subject  => $addr eq 'ports@freebsd.org'
+					? $settings{mail_altsubject}
+					: $settings{mail_subject},
 			Data     => $template->string
 		);
 

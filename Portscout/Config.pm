@@ -104,6 +104,7 @@ my (@paths, %settings_types, $bool_opts);
 	mail_enable     	=> 1,
 	mail_from       	=> APPNAME,
 	mail_subject    	=> '',
+	mail_altsubject    	=> '',
 	mail_method     	=> 'sendmail',
 	mail_host       	=> 'localhost',
 
