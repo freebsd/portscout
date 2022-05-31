@@ -103,8 +103,8 @@ my (@paths, %settings_types, $bool_opts);
 
 	mail_enable     	=> 1,
 	mail_from       	=> APPNAME,
-	mail_subject    	=> '',
-	mail_altsubject    	=> '',
+	mail_subject    	=> 'FreeBSD ports you maintain which are out of date',
+	mail_altsubject    	=> 'Unmaintained FreeBSD ports which are out of date',
 	mail_method     	=> 'sendmail',
 	mail_host       	=> 'localhost',
 
