@@ -1,10 +1,10 @@
 Dear port maintainers,
 
-The portscout new distfile checker has detected that one or more unmaintained 
-ports appears to be out of date. Please take the opportunity to check each of the 
-ports listed below, and if possible and appropriate, submit/commit an update. 
-Please consider also adopting this port. If any ports have already been updated, 
-you can safely ignore the entry.
+The portscout new distfile checker has detected that one or more
+unmaintained ports appears to be out of date. Please take the opportunity
+to check each of the ports listed below, and if possible and appropriate,
+submit/commit an update. Please consider also adopting this port.
+If any ports have already been updated, you can safely ignore the entry.
 
 An e-mail will not be sent again for any of the port/version combinations
 below.

@@ -1018,7 +1018,7 @@ sub FindNewestFile
 						$new_v = $matchver;
 					}
 
-					print "FindNewestFile::Github: Matchver: $matchver Normalized: $new_v \n" 
+					print "FindNewestFile::Github: Matchver: $matchver Normalized: $new_v \n"
 						if ($settings{debug});
 				}
 
@@ -1501,7 +1501,7 @@ sub GenerateHTML
 
 sub MailMaintainers
 {
-	my (%sths, $dbh, $template);
+	my (%sths, $dbh, $template_maintained, $template_unmaintained);
 
 	if (!$settings{mail_enable}) {
 		print "Reminder mails are disabled; taking no action.\n";
@@ -1518,22 +1518,20 @@ sub MailMaintainers
 
 	$sths{maildata_select}->execute;
 
+	my $template_maintained = Portscout::Template->new('reminder.mail')
+					or die "reminder.mail template not found!\n";
+	my $template_unmaintained = Portscout::Template->new('reminder-no-maintainer.mail')
+					or die "reminder-no-maintainer.mail template not found!\n";
 
 	while (my ($addr) = $sths{maildata_select}->fetchrow_array) {
 		my $msg;
 		my $ports = 0;
 		$sths{portdata_findnewnew}->execute($addr);
 
-		my $template;
-
-		if ($addr eq 'ports@freebsd.org') { 
-			$template = Portscout::Template->new('reminder-no-maintainer.mail')
-				or die "reminder-no-maintainer.mail template not found!\n";
-		} else {
-			$template = Portscout::Template->new('reminder.mail')
-				or die "reminder.mail template not found!\n";
-		}
-
+		my $template = lc $addr eq 'ports@freebsd.org'
+					? $template_unmaintained
+					: $template_maintained;
+		$template->reset;
 		$template->applyglobal({maintainer => lc $addr});
 
 		while (my $port = $sths{portdata_findnewnew}->fetchrow_hashref) {
@@ -1543,7 +1541,6 @@ sub MailMaintainers
 		}
 
 		if ($ports == 0) {
-			$template->reset;
 			next;
 		}
 
@@ -1554,8 +1551,8 @@ sub MailMaintainers
 			                ? $settings{mail_from}
 			                : $settings{mail_from}.'@'.hostname(),
 			To       => $addr,
-			Subject  => $addr eq 'ports@freebsd.org'
-					? $settings{mail_altsubject}
+			Subject  => lc $addr eq 'ports@freebsd.org'
+					? $settings{mail_subject_unmaintained}
 					: $settings{mail_subject},
 			Data     => $template->string
 		);
@@ -1563,8 +1560,6 @@ sub MailMaintainers
 		$msg->replace('X-Mailer' => USER_AGENT);
 
 		$msg->send;
-
-		$template->reset;
 
 		# Second pass to mark port newvers as mailed
 

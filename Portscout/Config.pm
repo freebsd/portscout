@@ -101,12 +101,12 @@ my (@paths, %settings_types, $bool_opts);
 	db_name         	=> APPNAME,
 	db_connstr      	=> 'DBI:Pg:dbname='.APPNAME,
 
-	mail_enable     	=> 1,
-	mail_from       	=> APPNAME,
-	mail_subject    	=> 'FreeBSD ports you maintain which are out of date',
-	mail_altsubject    	=> 'Unmaintained FreeBSD ports which are out of date',
-	mail_method     	=> 'sendmail',
-	mail_host       	=> 'localhost',
+	mail_enable     		=> 1,
+	mail_from       		=> APPNAME,
+	mail_subject    		=> 'FreeBSD ports you maintain which are out of date',
+	mail_subject_unmaintained  	=> 'Unmaintained FreeBSD ports which are out of date',
+	mail_method     		=> 'sendmail',
+	mail_host       		=> 'localhost',
 
 	cluster_enable  	=> 0,
 	system_affinity 	=> 0,
