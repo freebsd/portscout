@@ -1,0 +1,65 @@
+<html>
+
+<head>
+	<title>portscout - new distfile scanner</title>
+	<style>
+	<!--
+		body, table        { font-family: "Verdana", "Helvetica", Sans-Serif; }
+		h2                 { font-family: "Verdana", "Helvetica", Sans-Serif; }
+		tr                 { background-color: #FFFFFF; font-family: "Verdana", "Helvetica", Sans-Serif; }
+		td, p, ul, span    { font-family: "Verdana", "Helvetica", Sans-Serif; font-size: 85%; }
+		.results           { background-color: #444444; }
+		.catdata           { background-color: #2222DD; color: #ffff99; }
+		.catrow > .cat     { background-color: #2222DD; font-weight: bold; color: #ffffff; }
+		.resultshead       { color: #FFFFFF; font-weight: bold; background-color: #999999; }
+
+		.resultsrow        { background-color: #FFFFFF; }
+		.resultsrowupdated { background-color: #AAAADD; }
+
+		.resultshead a     { color: #FFFFFF; text-decoration: none; }
+	        .box               { border: 1px solid #000000; padding: 6px; }
+                .hidden            { display: none; }
+                .expand            { margin-right: 0.5em; font-size: 110%; background-color: #ffffff; color=#0000ff;}
+	//-->
+	</style>
+
+        <script type="text/javascript">
+          function ToggleCat(mycat) {
+              console.log(mycat);
+              let nodes = document.querySelectorAll("[data-cat=" + mycat + "]");
+              nodes.forEach(function(thing) {
+                  thing.classList.toggle("hidden");
+              });
+          }
+	</script>
+</head>
+
+<body>
+
+<h1>portscout - Changed port summary by category</h1>
+
+<hr>
+
+<p>Generated on %%(date) at %%(time), by <a href="http://www.inerd.com/software/portscout/">portscout</a> v%%(appver)</p>
+
+<p><a href="restricted-ports.html">Restricted ports</a> <font color="#CC0000"><b>&lt;-- Please check this!</b></font></p>
+
+<br /><br />
+
+<table class="results" cellspacing="1" cellpadding="2">
+	<thead>
+	    <tr class="resultshead">
+		<td>Category</td>
+		<td>Portname</td>
+		<td>Old Version</td>
+		<td>New Version</td>
+	    </tr>
+        </thead>
+	<tbody>
+%%:[catrow] <tr class="resultsrow catrow"><td class="cat"><button onclick="ToggleCat('%%(cat)')" class="expand">+</button>%%(cat)</td><td class="catdata" colspan="3">%%(catdata)</td></tr>
+%%:[portrow] <tr class="hidden resultsrow portrow" data-cat="%%(cat)"> <td class="cat">%%(cat)</td><td class="port">%%(name)</td><td class="ver">%%(ver)</td><td class="newver">%%(newver)</td></tr>
+	</tbody>
+</table>
+
+</body>
+</html>
