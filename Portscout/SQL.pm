@@ -264,7 +264,7 @@ $sql{portdata_selectupdated} =
 	   WHERE ver != newver
 	ORDER BY lower(maintainer));
 
-# ShowUpdatesByPort (and generate)
+# ShowUpdatesByPort (and generate category)
 
 $sql{portdata_selectupdatedbyport} =
 	q(SELECT cat, name, ver, newver

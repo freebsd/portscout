@@ -1482,12 +1482,15 @@ sub GenerateHTML
 	while (my $row = $sths{portdata_selectupdatedbyport}->fetchrow_hashref) {
           my $cat = $row->{cat};
           if (!defined($lastcat) || $lastcat ne $cat) {
-            $row->{'catdata'} = sprintf("New versions: %5d out of %5d", @{ $catcount{$cat} });
+            my ($numerator, $denominator) =  @{ $catcount{ $row->{cat} } };
+            $numerator //= 0;  $denominator //= 0;
+            $row->{'catdata'} = sprintf("Out of date: %.2f%%", (($denominator > 0) ? ($numerator/$denominator) : 0.0));
             
             $template->pushrow($row, 'catrow');
             $lastcat = $cat;
           }
-
+          $row->{namelink} = '<a href="https://www.freshports.org/' . $cat . '/' . $row->{name}  . '">' . $row->{name} . '</a>';
+          
           $template->pushrow($row, 'portrow');
 	}
 
