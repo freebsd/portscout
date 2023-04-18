@@ -101,6 +101,19 @@
 	<input type="button" value="Apply" id="submitbutton" onclick="FilterResults()" />
 </span>
 
+<script>
+	const queryString = window.location.search;
+	const urlParams = new URLSearchParams(queryString);
+	const outdatedParam = urlParams.get('outdated');
+	if (outdatedParam === '1') {
+		document.getElementById('filter_ood').checked = true;
+		FilterResults();
+	} else if (outdatedParam === '0') {
+		document.getElementById('filter_ood').checked = false;
+		FilterResults();
+	}
+</script>
+
 <br /><br />
 
 <table class="results" cellspacing="1" cellpadding="2">
