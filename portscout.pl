@@ -241,6 +241,10 @@ sub ExecArgs
 	{
 		$res = ShowUpdates();
 	}
+	elsif ($cmd eq 'showupdatesbyport')
+	{
+		$res = ShowUpdatesByPort();
+	}
 	elsif ($cmd eq 'add-mail' or $cmd eq 'remove-mail')
 	{
 		my (@addrs) = @ARGV; # Should be a list of addrs
@@ -1310,7 +1314,15 @@ sub GenerateHTML
 	$dbh = connect_db();
 
 	prepare_sql($dbh, \%sths,
-		qw(portdata_genresults portdata_selectall portdata_selectmaintainer portdata_selectall_limited)
+		qw(
+                    portdata_genresults 
+                    portdata_selectall 
+                    portdata_selectmaintainer 
+                    portdata_selectall_limited 
+                    portdata_selectupdatedbyport 
+                    portdata_updatedcatcount
+                    portdata_catcount
+                )
 	);
 
 	if ($Portscout::SQL::sql{portdata_genresults_init}) {
@@ -1442,6 +1454,48 @@ sub GenerateHTML
 	}
 
 	$template->output('restricted-ports.html');
+
+        ### New index category code - dave@jetcafe.org
+	$template = undef;
+
+	print "Creating index by category page...\n";
+
+        # Category data first
+        my %catcount = ();
+	$sths{portdata_updatedcatcount}->execute;
+	while (my $row = $sths{portdata_updatedcatcount}->fetchrow_hashref) {
+          $catcount{ $row->{cat} } = [ $row->{count} ]
+        }
+	$sths{portdata_catcount}->execute;
+	while (my $row = $sths{portdata_catcount}->fetchrow_hashref) {
+          push(@{ $catcount{ $row->{cat} } }, $row->{count}) if (defined($catcount{ $row->{cat} }));
+        }
+
+        # Now muck with template since we already have our category data, this lets us use the database
+        # as a sorting engine as it should be.
+	$template = Portscout::Template->new('index-category.html')
+		or die "index-category.html template not found!\n";
+
+	$template->applyglobal(\%outdata);
+	$sths{portdata_selectupdatedbyport}->execute;
+
+        my $lastcat;
+	while (my $row = $sths{portdata_selectupdatedbyport}->fetchrow_hashref) {
+          my $cat = $row->{cat};
+          if (!defined($lastcat) || $lastcat ne $cat) {
+            my ($numerator, $denominator) =  @{ $catcount{ $row->{cat} } };
+            $numerator //= 0;  $denominator //= 0;
+            $row->{'catdata'} = sprintf("Out of date: %.2f%%", (($denominator > 0) ? ($numerator/$denominator) : 0.0));
+            
+            $template->pushrow($row, 'catrow');
+            $lastcat = $cat;
+          }
+          $row->{namelink} = '<a href="https://www.freshports.org/' . $cat . '/' . $row->{name}  . '">' . $row->{name} . '</a>';
+          
+          $template->pushrow($row, 'portrow');
+	}
+
+	$template->output('index-category.html');
 
 	print "Creating JSON dump of all data...\n";
 
@@ -1610,6 +1664,35 @@ sub ShowUpdates
 			print "${maintainer}'s ports:\n";
 		}
 		print "  $port->{cat}/$port->{name} $port->{ver} -> $port->{newver}\n";
+	}
+
+	finish_sql($dbh, \%sths);
+	$dbh->disconnect;
+
+	return 1;
+}
+
+#------------------------------------------------------------------------------
+# Func: ShowUpdatesByPort()
+# Desc: Produce a simple report showing ports with updates ordered by port not maintainer
+#
+# Args: n/a
+#
+# Retn: $success - true/false
+#------------------------------------------------------------------------------
+
+sub ShowUpdatesByPort
+{
+	my (%sths, $dbh);
+
+	$dbh = connect_db();
+
+	prepare_sql($dbh, \%sths, 'portdata_selectupdatedbyport');
+
+	$sths{portdata_selectupdatedbyport}->execute();
+
+	while (my $port = $sths{portdata_selectupdatedbyport}->fetchrow_hashref) {
+          print "  $port->{cat}/$port->{name} $port->{ver} -> $port->{newver}\n";
 	}
 
 	finish_sql($dbh, \%sths);
@@ -1901,6 +1984,7 @@ sub Usage
 	print STDERR "       $s mail\n";
 	print STDERR "       $s generate\n";
 	print STDERR "       $s showupdates\n";
+	print STDERR "       $s showupdatesbyport\n";
 	print STDERR "\n";
 	print STDERR "       $s add-mail user\@host ...\n";
 	print STDERR "       $s remove-mail user\@host ...\n";
