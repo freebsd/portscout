@@ -55,7 +55,7 @@ use Portscout::Util;
 use Portscout::Config;
 
 use strict;
-#use warnings;
+#use warnings FATAL => 'all';
 
 require 5.006;
 
@@ -1352,7 +1352,7 @@ sub GenerateHTML
 		$sth->execute;
 
 		while (my $row = $sth->fetchrow_hashref) {
-			$row->{percentage} = sprintf('%.2f%', $row->{percentage})
+			$row->{percentage} = sprintf('%.2f%%', $row->{percentage})
 				if ($row->{percentage});
 			$template->pushrow($row);
 		}
@@ -1390,14 +1390,15 @@ sub GenerateHTML
 
 		$sths{portdata_selectmaintainer}->execute($addr);
 		while (my $row = $sths{portdata_selectmaintainer}->fetchrow_hashref) {
+			$row->{method} = '';
 			if ($row->{ignore}) {
 				$row->{method} = 'X';
 				$row->{newver} = '';
 				$row->{newurl} = '';
 			} else {
-				if ($row->{method} == METHOD_LIST) {
+				if ($row->{method} eq METHOD_LIST) {
 					$row->{method} = 'L';
-				} elsif ($row->{method} == METHOD_GUESS) {
+				} elsif ($row->{method} eq METHOD_GUESS) {
 					$row->{method} = 'G';
 				} else {
 					$row->{method} = '';
@@ -1411,7 +1412,7 @@ sub GenerateHTML
 				$row->{newdistfile} = '';
 			}
 			$row->{updated} =~ s/:\d\d(?:\.\d+)?$/ $settings{local_timezone}/;
-			$row->{checked} =~ s/:\d\d(?:\.\d+)?$/ $settings{local_timezone}/;
+			$row->{checked} = $row->{updated};
 
 			$template->pushrow($row);
 		}
@@ -1453,14 +1454,15 @@ sub GenerateHTML
 
 	$sths{portdata_selectall}->execute();
 	while (my $row = $sths{portdata_selectall}->fetchrow_hashref) {
+		$row->{method} = '';
 		if ($row->{ignore}) {
 			$row->{method} = 'X';
 			$row->{newver} = '';
 			$row->{newurl} = '';
 		} else {
-			if ($row->{method} == METHOD_LIST) {
+			if ($row->{method} eq METHOD_LIST) {
 				$row->{method} = 'L';
-			} elsif ($row->{method} == METHOD_GUESS) {
+			} elsif ($row->{method} eq METHOD_GUESS) {
 				$row->{method} = 'G';
 			} else {
 				$row->{method} = '';
@@ -1474,7 +1476,7 @@ sub GenerateHTML
 			$row->{newdistfile} = '';
 		}
 		$row->{updated} =~ s/:\d\d(?:\.\d+)?$/ $settings{local_timezone}/;
-		$row->{checked} =~ s/:\d\d(?:\.\d+)?$/ $settings{local_timezone}/;
+		$row->{checked} = $row->{updated};
 
 		$row = { map { $_ => $row->{$_} } qw(name cat maintainer ver method newver newurl checked updated discovered) };
 
@@ -1518,9 +1520,9 @@ sub MailMaintainers
 
 	$sths{maildata_select}->execute;
 
-	my $template_maintained = Portscout::Template->new('reminder.mail')
+	$template_maintained = Portscout::Template->new('reminder.mail')
 					or die "reminder.mail template not found!\n";
-	my $template_unmaintained = Portscout::Template->new('reminder-no-maintainer.mail')
+	$template_unmaintained = Portscout::Template->new('reminder-no-maintainer.mail')
 					or die "reminder-no-maintainer.mail template not found!\n";
 
 	while (my ($addr) = $sths{maildata_select}->fetchrow_array) {
