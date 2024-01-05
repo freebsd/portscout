@@ -265,6 +265,13 @@ sub verguess
 		push @ver_guesses, $guess;
 	}
 
+	# for versions in the format N.N try N.N.N, and for N.N.N try N.N.N.N
+	if ($#vparts == 2 or $#vparts == 3) {
+		for my $n (1..4) {
+			push @ver_guesses, $ver . "." . $n;
+		}
+	}
+
 	return @ver_guesses;
 }
 
