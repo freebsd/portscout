@@ -1103,16 +1103,25 @@ sub FindNewestFile
 					if (!defined($poss_match) or vercompare($version, $poss_match)) {
 						$poss_match = $version;
 
-						$poss_url = $site->clone;
+						# GitHub or other absolute URL
+						if ($github || $poss_path =~ m{^[A-Za-z][A-Za-z0-9+.\-]*://}) {
+							$poss_url = URI->new(
+								$poss_path eq ''
+									? $file
+									: "$poss_path/$file"
+							);
+						} else {
+							$poss_url = $site->clone;
 
-						if ($poss_path) {
-							$poss_url->path($poss_path);
+							if ($poss_path) {
+								$poss_url->path($poss_path);
+							}
+
+							$poss_url->path($poss_url->path . '/')
+								if ($poss_url !~ /\/$/);
+
+							uri_filename($poss_url, $file);
 						}
-
-						$poss_url->path($poss_url->path . '/')
-							if ($poss_url !~ /\/$/);
-
-						uri_filename($poss_url, $file);
 
 						next;
 					}
