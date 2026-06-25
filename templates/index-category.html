@@ -1,0 +1,105 @@
+<html>
+
+<head>
+	<title>portscout - new distfile scanner</title>
+	<style>
+	<!--
+		body, table        { font-family: "Verdana", "Helvetica", Sans-Serif; }
+		h2                 { font-family: "Verdana", "Helvetica", Sans-Serif; }
+		tr                 { background-color: #FFFFFF; font-family: "Verdana", "Helvetica", Sans-Serif; }
+		td, p, ul, span    { font-family: "Verdana", "Helvetica", Sans-Serif; font-size: 85%; }
+		.results           { background-color: #444444; }
+		.resultshead       { color: #FFFFFF; font-weight: bold; background-color: #999999; }
+
+		.resultsrow        { background-color: #FFFFFF; }
+		.catrow            { background-color: #AAAADD; }
+
+		.resultshead a     { color: #FFFFFF; text-decoration: none; }
+
+		.box               { border: 1px solid #000000; padding: 6px; }
+	//-->
+        </style>
+        <script type="text/javascript">
+          var fproc = null;
+          
+          function FilterResults() {
+              if (!fproc) {
+                  var button = document.getElementById('submitbutton');
+                  if (!button)
+                      return;
+                  
+                  button.setAttribute('disabled', 'disabled');
+                  button.value = 'Processing...';
+                  
+                  fproc = setTimeout(DoFilter, 100);
+              }
+          }
+          
+          function DoFilter() {
+              
+              let category   = document.getElementById('filter_category');
+              let button     = document.getElementById('submitbutton');
+              if (!category || !button) { return; }
+
+              let regex = new RegExp(category.value, 'i');
+
+              document.querySelectorAll("[data-cat]").forEach(function (row) {
+                  console.log(row);
+
+                  let row_category = row.getAttribute('data-cat');
+                  console.log(row_category);
+                  
+                  if (!regex.test(row_category)) {
+                      row.style.display = 'none';
+                  } else {
+                      // Why the try/catch here? Leaving it in for now
+                      try {
+                          row.style.display = 'table-row';
+                      } catch(e) {
+                          row.style.display = 'block';
+                      }
+                  }
+              });
+              
+              fproc = null;
+              
+              button.value = 'Apply';
+              button.removeAttribute('disabled');
+          }
+        </script>
+</head>
+
+<body>
+
+<h1>portscout - Changed port summary by category</h1>
+
+<hr>
+
+<p>Generated on %%(date) at %%(time), by <a href="http://www.inerd.com/software/portscout/">portscout</a> v%%(appver)</p>
+
+<p><a href="restricted-ports.html">Restricted ports</a> <font color="#CC0000"><b>&lt;-- Please check this!</b></font></p>
+
+<span class="box">
+	Filter Category (regex): <input type="text" id="filter_category" />
+	<input type="button" value="Apply" id="submitbutton" onclick="FilterResults()" />
+</span>
+
+<br /><br />
+
+<table id="results" cellspacing="1" cellpadding="2">
+	<thead>
+	    <tr id="resultshead">
+		<td>Category</td>
+		<td>Port</td>
+		<td>Current</td>
+		<td>New</td>
+	    </tr>
+        </thead>
+	<tbody id="resultsbody">
+%%:[catrow] <tr class="resultsrow catrow" data-cat="%%(cat)"><td class="cat">%%(cat)</td><td class="catdata" colspan="3">%%(catdata)</td></tr>
+%%:[portrow] <tr class="resultsrow portrow" data-cat="%%(cat)"> <td class="cat">%%(cat)</td><td class="port">%%(namelink)</td><td class="ver">%%(ver)</td><td class="newver">%%(newver)</td></tr>
+	</tbody>
+</table>
+
+</body>
+</html>

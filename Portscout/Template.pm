@@ -175,7 +175,7 @@ sub applyglobal
 	return 1;
 }
 
-
+  
 #------------------------------------------------------------------------------
 # Func: pushrow()
 # Desc: Interpolate data into the template's "repeat" section, and add the
@@ -190,9 +190,12 @@ sub pushrow
 {
 	my $self = shift;
 	my $data = shift;
+        my $tag = shift;
 
 	my $var;
-
+        # Commented just for understanding: If there is anything in 'repeat', use that as the template
+        # for 'rows', otherwise use 'template_repeat'. This is in case you never called applyglobal() on
+        # the template. 
 	if (@{$self->{repeat}}) {
 		$var = 'repeat';
 	} else {
@@ -201,6 +204,11 @@ sub pushrow
 
 	foreach (@{$self->{$var}}) {
 		my $val = $_;
+
+                # This allows you to say %%:[<tag>] and have <tag>
+                # only be output if pushrow gets called with that tag in the 3rd argument
+                next if (defined($tag) && ! ($val =~ s/^\[$tag\]//));
+                
 		$val =~ s/\%\%\((.+?)(?::(.*?))?\)/
 			if (exists $data->{$1}) {
 				_format_var($data->{$1}, $2);

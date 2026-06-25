@@ -264,6 +264,24 @@ $sql{portdata_selectupdated} =
 	   WHERE ver != newver
 	ORDER BY lower(maintainer));
 
+# ShowUpdatesByPort (and generate category)
+
+$sql{portdata_selectupdatedbyport} =
+	q(SELECT cat, name, ver, newver
+	    FROM portdata
+	   WHERE ver != newver
+	ORDER BY cat,name);
+
+$sql{portdata_catcount} =
+	q(SELECT cat, COUNT(*) as count
+	    FROM portdata
+        GROUP BY cat);
+
+$sql{portdata_updatedcatcount} =
+	q(SELECT cat, COUNT(*) as count
+	    FROM portdata
+	   WHERE ver != newver
+        GROUP BY cat);
 
 # MovePorts
 
