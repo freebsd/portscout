@@ -120,7 +120,7 @@ sub GetFiles
 		}
 	}
 
-	# In case there aren't any releases, try tags tags instead
+	# In case there aren't any releases, try tags instead
 	if (scalar @$files == $files_count_before) {
 		my $tags = _call_github_api('/repos/' . $projname . '/tags')
 		  or return 0;
