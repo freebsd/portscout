@@ -931,7 +931,7 @@ sub FindNewestFile
 				}
 			}
 
-			$github = 1 if ($site->clone =~ /^https?:\/\/([^\/.]+\.)?github\.com\/(.*?)\/tar.gz/);
+			$github = 1 if ($site->clone =~ m{^https?://(?:www\.)?(?:github\.com|codeload\.github\.com)/[^/]+/[^/]+(?:/|$)}i);
 
 			# Skip beta versions if requested
 
@@ -1005,18 +1005,23 @@ sub FindNewestFile
 					# suffixes. This is likely the best we can get for now, without
 					# introducing false positives.
 
-					($matchver) = ($version =~ m/((?:\d+.)*\d+)/);
+					($matchver) = ($version =~
+						m{(?:^|[^A-Za-z0-9])v?(\d+(?:[._-]\d+)+)(?:[^A-Za-z0-9]|$)});
+
+					if (!defined($matchver)) {
+						($matchver) = ($version =~
+							m{(?:^|[^A-Za-z0-9])v?(\d+)(?:[^A-Za-z0-9]|$)});
+					}
 
 					print "FindNewestFile::Github: Input: $file Matchver: $matchver \n"
 						if ($settings{debug});
 
 					# Replace non-digit separators of digits with dots.
 
-					$matchver =~ s/[^\d+]/\./g;
+					next unless (defined($matchver));
 
-					if (defined($matchver)) {
-						$new_v = $matchver;
-					}
+					$matchver =~ s/[^\d]/\./g;
+					$new_v = $matchver;
 
 					print "FindNewestFile::Github: Matchver: $matchver Normalized: $new_v \n"
 						if ($settings{debug});
@@ -1103,25 +1108,16 @@ sub FindNewestFile
 					if (!defined($poss_match) or vercompare($version, $poss_match)) {
 						$poss_match = $version;
 
-						# GitHub or other absolute URL
-						if ($github || $poss_path =~ m{^[A-Za-z][A-Za-z0-9+.\-]*://}) {
-							$poss_url = URI->new(
-								$poss_path eq ''
-									? $file
-									: "$poss_path/$file"
-							);
-						} else {
-							$poss_url = $site->clone;
+						$poss_url = $site->clone;
 
-							if ($poss_path) {
-								$poss_url->path($poss_path);
-							}
-
-							$poss_url->path($poss_url->path . '/')
-								if ($poss_url !~ /\/$/);
-
-							uri_filename($poss_url, $file);
+						if ($poss_path) {
+							$poss_url->path($poss_path);
 						}
+
+						$poss_url->path($poss_url->path . '/')
+							if ($poss_url !~ /\/$/);
+
+						uri_filename($poss_url, $file);
 
 						next;
 					}

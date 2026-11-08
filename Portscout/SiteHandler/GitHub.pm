@@ -1,183 +1,230 @@
-#------------------------------------------------------------------------------
-# Copyright (C) 2014, Jasper Lievisse Adriaanse <jasper@openbsd.org>
-#
-# Permission to use, copy, modify, and distribute this software for any
-# purpose with or without fee is hereby granted, provided that the above
-# copyright notice and this permission notice appear in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-#
-#------------------------------------------------------------------------------
-
 package Portscout::SiteHandler::GitHub;
 
-use JSON qw(decode_json);
-use LWP::UserAgent;
+#
+# Copyright (c) 2006-2024 The FreeBSD Project.
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+# GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+# IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+# IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+use Cwd qw(getcwd);
+use IPC::Open3;
 
 use Portscout::Const;
 use Portscout::Config;
 
 use strict;
-
 require 5.006;
 
-
-#------------------------------------------------------------------------------
-# Globals
-#------------------------------------------------------------------------------
-
 push @Portscout::SiteHandler::sitehandlers, __PACKAGE__;
-
 our %settings;
-
-
-#------------------------------------------------------------------------------
-# Func: new()
-# Desc: Constructor.
-#
-# Args: n/a
-#
-# Retn: $self
-#------------------------------------------------------------------------------
 
 sub new
 {
-	my $self = {};
 	my $class = shift;
+	my $self = {};
 
 	$self->{name} = 'GitHub';
 
-	bless ($self, $class);
+	bless $self, $class;
 	return $self;
 }
-
-
-#------------------------------------------------------------------------------
-# Func: CanHandle()
-# Desc: Ask if this handler (package) can handle the given site.
-#
-# Args: $url - URL of site.
-#
-# Retn: $res - true/false.
-#------------------------------------------------------------------------------
 
 sub CanHandle
 {
 	my $self = shift;
-
 	my ($url) = @_;
 
-	return ($url =~ /^https?:\/\/([^\/.]+\.)?github\.com\/(.*?)\/tar.gz/);
+	return ($url =~
+	    m{^https?://(?:www\.)?(?:github\.com|codeload\.github\.com)/[^/]+/[^/]+(?:/|$)}i);
 }
-
-
-#------------------------------------------------------------------------------
-# Func: GetFiles()
-# Desc: Extract a list of files from the given URL. In the case of GitHub,
-#       we are actually pulling the files from the project's Atom feed and
-#       extract the release url, containing the tag it was based on.
-#
-# Args: $url     - URL we would normally fetch from.
-#       \%port   - Port hash fetched from database.
-#       \@files  - Array to put files into.
-#
-# Retn: $success - False if file list could not be constructed; else, true.
-#------------------------------------------------------------------------------
 
 sub GetFiles
 {
 	my $self = shift;
-
 	my ($url, $port, $files) = @_;
-	my $files_count_before = scalar @$files;
-	my $projname;
+	my ($owner, $project);
 
-	# Extract project name from URL
-	if ($url =~ /https?:\/\/codeload\.github\.com\/(.+?)\/tar.gz\//) {
-		$projname = $1;
-	} elsif ($url =~ /https:\/\/github\.com\/(.+?)\/archive\//) {
-		$projname = $1;
-	} elsif ($url =~ /https:\/\/github.com\/downloads\/(.+)\//) {
-		$projname = $1;
-	} else {
-		_debug("Couldn't extract project name from URL $url");
+	my $category = $port->{cat};
+	my $name = $port->{name};
+
+	if (!$category || !$name) {
+		_debug('Port category or name is missing');
 		return 0;
 	}
 
-	# See if there are any releases
-	my $releases = _call_github_api('/repos/' . $projname . '/releases')
-	  or return 0;
-	foreach my $release (@$releases) {
-		if (!$release->{prerelease} && !$release->{draft}) {
-			my $release_url = $release->{tarball_url};
-			push(@$files, $release_url);
+	my $dir = $settings{ports_dir} . '/' .
+	    $category . '/' . $name;
+	my $cwd = getcwd();
+	my $make_output;
+
+	if (!chdir($dir)) {
+		_debug("Couldn't chdir to $dir");
+		return 0;
+	}
+
+	$make_output = qx(make -V USE_GITHUB -V GH_ACCOUNT -V GH_PROJECT -V MASTER_SITES 2>/dev/null);
+	my $make_status = $?;
+
+	chdir($cwd);
+
+	if ($make_status != 0) {
+		_debug("make failed for $dir");
+		return 0;
+	}
+
+	my @mv = split /\n/, $make_output, -1;
+	my $use_github = shift @mv;
+	$owner = shift @mv;
+	$project = shift @mv;
+	my $master_sites = shift @mv;
+
+	$use_github = '' unless defined $use_github;
+	$owner = '' unless defined $owner;
+	$project = '' unless defined $project;
+	$master_sites = '' unless defined $master_sites;
+
+	return 0 if ($use_github eq 'nodefault');
+
+	if ($use_github eq 'yes') {
+		if (!$owner || !$project) {
+			_debug('USE_GITHUB=yes but GH_ACCOUNT/GH_PROJECT are missing');
+			return 0;
+		}
+	} else {
+		my $github_site;
+
+		foreach my $site (split /\s+/, $master_sites) {
+			next unless ($site =~
+			    m{^https?://(?:www\.)?(?:github\.com|codeload\.github\.com)/}i);
+
+			my $without_scheme = $site;
+			$without_scheme =~ s{^[^:]+://}{};
+
+			# A :label suffix means this MASTER_SITES entry is
+			# labelled and therefore is not the primary source.
+			next if ($without_scheme =~ /:/);
+
+			$github_site = $site;
+			last;
+		}
+
+		if (!$github_site) {
+			_debug("No unlabelled GitHub MASTER_SITES entry for " .
+			    "$port->{category}/$port->{name}");
+			return 0;
+		}
+
+		if ($github_site =~
+		    m{^https?://(?:www\.)?(?:github\.com|codeload\.github\.com)/([^/]+)/([^/?]+)}i) {
+			$owner = $1;
+			$project = $2;
+		} else {
+			_debug("Couldn't extract project name from URL $github_site");
+			return 0;
 		}
 	}
 
-	# In case there aren't any releases, try tags tags instead
-	if (scalar @$files == $files_count_before) {
-		my $tags = _call_github_api('/repos/' . $projname . '/tags')
-		  or return 0;
-		foreach my $tag (@$tags) {
-			my $tag_url = $tag->{tarball_url};
-			push(@$files, $tag_url);
+	my $remote = "https://github.com/$owner/$project.git";
+
+	_debug("git ls-remote --tags --refs $remote");
+
+	my ($output, $status, $timed_out) = _git_tags($remote);
+
+	return 0 if ($timed_out || $status != 0);
+
+	foreach my $line (split /\n/, $output) {
+		if ($line =~ m{^[0-9a-fA-F]+\s+refs/tags/(.+)$}) {
+			push @$files, $1;
 		}
 	}
 
-	_debug('Found ' . (scalar @$files - $files_count_before) . ' files');
+	_debug('Found ' . scalar(@$files) . ' Git tags');
+
 	return 1;
 }
 
+sub _git_tags
+{
+	my ($remote) = @_;
+	my ($output, $status, $timed_out) = ('', -1, 0);
+	my ($pid, $in, $out, $err);
 
-#------------------------------------------------------------------------------
-# Func: _call_github_api()
-# Desc: Calls the github api making use of settings.
-#
-# Args: $resource - Resource to query (e.g. "/repos/project/releases")
-#
-# Retn: Parsed JSON
-#------------------------------------------------------------------------------
+	eval {
+		open($err, '>', '/dev/null') or
+		    die "open /dev/null failed: $!\n";
 
-sub _call_github_api {
-	my $resource = shift;
+		local $ENV{GIT_TERMINAL_PROMPT} = '0';
 
-	my $url = 'https://api.github.com' . $resource;
-	_debug("GET $url");
+		$pid = open3($in, $out, $err,
+		    'git', 'ls-remote', '--tags', '--refs', $remote);
 
-	my $ua = LWP::UserAgent->new;
-	$ua->agent(USER_AGENT);
-	$ua->timeout($settings{http_timeout});
+		close($in);
 
-	my $response = $ua->request(
-		HTTP::Request->new(
-			GET => $url,
-			$settings{github_token}
-			? ["Authorization" => "token $settings{github_token}"]
-			: []
-		)
-	);
-	if (!$response->is_success || $response->status_line !~ /^2/) {
-		_debug('GET failed: ' . $response->status_line);
-		return;
+		local $SIG{ALRM} = sub {
+			die "__PORTSCOUT_GITHUB_TIMEOUT__\n"
+		};
+
+		alarm($settings{http_timeout});
+
+		while (my $line = <$out>) {
+			$output .= $line;
+		}
+
+		alarm(0);
+
+		close($out);
+		close($err);
+
+		waitpid($pid, 0);
+		$status = $?;
+	};
+
+	if ($@) {
+		alarm(0);
+
+		$timed_out = 1
+		    if ($@ =~ /__PORTSCOUT_GITHUB_TIMEOUT__/);
+
+		if ($pid) {
+			kill('KILL', $pid);
+			waitpid($pid, 0);
+		}
+
+		close($out) if ($out);
+		close($err) if ($err);
+
+		_debug('git ls-remote timed out') if ($timed_out);
+
+		return ($output, -1, $timed_out);
 	}
-	return decode_json($response->decoded_content);
+
+	if ($status != 0) {
+		_debug("git ls-remote failed with status $status");
+	}
+
+	return ($output, $status, 0);
 }
-
-
-#------------------------------------------------------------------------------
-# Func: _debug()
-# Desc: Print a debug message.
-#
-# Args: $msg - Message.
-#
-# Retn: n/a
-#------------------------------------------------------------------------------
 
 sub _debug
 {
@@ -185,7 +232,8 @@ sub _debug
 
 	$msg = '' if (!$msg);
 
-	print STDERR "(" . __PACKAGE__ . ") $msg\n" if ($settings{debug});
+	print STDERR "(" . __PACKAGE__ . ") $msg\n"
+	    if ($settings{debug});
 }
 
 1;
