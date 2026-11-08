@@ -1454,8 +1454,15 @@ sub GenerateHTML
 
 	print "Creating JSON dump of all data...\n";
 
-	open my $jf, '>', $settings{html_data_dir} . '/dump.json'
-		or die 'Cannot open JSON output';
+	# Write to a temporary file in the same directory, then rename() it into
+	# place: rename is atomic within a filesystem, so anyone fetching the
+	# file sees either the previous complete copy or the new complete copy,
+	# never a partly written one.
+	my $jfile = $settings{html_data_dir} . '/dump.json';
+	my $jtmp  = $settings{html_data_dir} . '/.dump.json.tmp.' . $$;
+
+	open my $jf, '>', $jtmp
+		or die "Cannot open JSON output $jtmp: $!";
 
 	print $jf '[';
 
@@ -1494,7 +1501,20 @@ sub GenerateHTML
 		$firstitem = 0;
 	}
 	print $jf ']';
-	close $jf;
+
+	if (!close $jf) {
+		my $err = $!;
+		unlink $jtmp;
+		die "Cannot write JSON output $jtmp: $err";
+	}
+
+	chmod 0644, $jtmp;
+
+	if (!rename $jtmp, $jfile) {
+		my $err = $!;
+		unlink $jtmp;
+		die "Cannot rename $jtmp to $jfile: $err";
+	}
 
 	finish_sql($dbh, \%sths);
 	$dbh->disconnect;
